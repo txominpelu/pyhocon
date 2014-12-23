@@ -1,0 +1,39 @@
+machine:
+  python:
+       version: 2.7.5 
+  services:
+    # setup docker
+    - docker
+  hosts:
+    # customize host file so it can resolve nexus located in paris
+    nexus01.infra.paris.apvo: 83.167.37.151
+
+dependencies:
+  cache_directories:
+    - ~/.viadeo # cache viadeo scripts
+    - ~/.local  # cache pip programs 
+  pre:
+    # setup shared scripts
+    - if [[ ! -d ~/.viadeo ]]; then git clone git@github.com:viadeo/viadeo-docker.git ~/.viadeo; fi  
+
+    # dependencies required to build debian
+    - sudo apt-get install python-stdeb fakeroot python-all 
+
+    # provision required dependency for s3 upload
+    - ~/.viadeo/bin/s3-provision.sh 
+
+  override: 
+    - sleep 20 && python setup.py --command-packages=stdeb.command bdist_deb
+
+test:
+  override:
+    - ./setup.py test
+
+deployment:
+  demo:
+    branch: master
+    owner: viadeo
+    commands:
+      # upload the following directory to s3 bucket
+            - mkdir target && mv deb_dist/pyhocon_0.1.7-1_amd64.changes target/pyhocon_0.1.7-1_all.changes && mv deb_dist/*.deb target/ && ~/.viadeo/bin/s3-publish.sh target
+
